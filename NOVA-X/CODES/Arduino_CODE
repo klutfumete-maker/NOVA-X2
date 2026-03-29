@@ -1,0 +1,88 @@
+#include <Wire.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_HMC5883_U.h>
+
+#define TCAADDR 0x70 // I2C Çoklayıcı Adresi
+
+// L298N Motor Sürücü Pinleri (Elektromıknatıslar)
+const int enA = 2; const int in1 = 3; const int in2 = 4; // Sol Mıknatıs
+const int enB = 5; const int in3 = 6; const int in4 = 7; // Sağ Mıknatıs
+
+Adafruit_HMC5883_Unified mag = Adafruit_HMC5883_Unified(12345);
+
+unsigned long sonOkumaZamani = 0;
+const int okumaAraligi = 100; // 100ms = Saniyede 10 kez
+
+void tcaselect(uint8_t i) {
+  if (i > 7) return;
+  Wire.beginTransmission(TCAADDR);
+  Wire.write(1 << i);
+  Wire.endTransmission();
+}
+
+void setup() {
+  Serial.begin(115200);
+  Wire.begin();
+
+  // Pin Ayarları
+  pinMode(enA, OUTPUT); pinMode(in1, OUTPUT); pinMode(in2, OUTPUT);
+  pinMode(enB, OUTPUT); pinMode(in3, OUTPUT); pinMode(in4, OUTPUT);
+  miknatisKapat();
+
+  // Sensörleri Başlat
+  for(int i=0; i<4; i++) {
+    tcaselect(i);
+    if(!mag.begin()) {
+      Serial.println("HATA: Sensör " + String(i) + " bulunamadı!");
+    }
+  }
+}
+
+void loop() {
+  // 1. PYTHON'DAN GELEN EMİRLERİ DİNLE
+  if (Serial.available() > 0) {
+    String komut = Serial.readStringUntil('\n');
+    komut.trim();
+    if (komut == "MIKNATIS_AC") {
+      miknatisAc();
+      Serial.println("ONAY: MIKNATISLAR_AKTIF");
+    } else if (komut == "MIKNATIS_KAPAT") {
+      miknatisKapat();
+      Serial.println("ONAY: MIKNATISLAR_KAPALI");
+    }
+  }
+
+  // 2. SENSÖRLERİ OKU VE PI'YE GÖNDER (Saniyede 10 Kez)
+  if (millis() - sonOkumaZamani >= okumaAraligi) {
+    sonOkumaZamani = millis();
+    float toplamManyetikAlan = 0;
+    int basariliOkuma = 0;
+
+    for(int i=0; i<4; i++) {
+      tcaselect(i);
+      sensors_event_t event; 
+      mag.getEvent(&event);
+      // X, Y, Z vektörlerinin büyüklüğünü hesapla (Mikrotesla)
+      float alanSiddeti = sqrt(sq(event.magnetic.x) + sq(event.magnetic.y) + sq(event.magnetic.z));
+      if (alanSiddeti > 0) {
+        toplamManyetikAlan += alanSiddeti;
+        basariliOkuma++;
+      }
+    }
+
+    if (basariliOkuma > 0) {
+      float ortalamaAlan = toplamManyetikAlan / basariliOkuma;
+      Serial.println(ortalamaAlan); // Pi'ye sadece sayıyı gönder
+    }
+  }
+}
+
+void miknatisAc() {
+  digitalWrite(in1, HIGH); digitalWrite(in2, LOW); analogWrite(enA, 255);
+  digitalWrite(in3, HIGH); digitalWrite(in4, LOW); analogWrite(enB, 255);
+}
+
+void miknatisKapat() {
+  digitalWrite(in1, LOW); digitalWrite(in2, LOW); analogWrite(enA, 0);
+  digitalWrite(in3, LOW); digitalWrite(in4, LOW); analogWrite(enB, 0);
+}
