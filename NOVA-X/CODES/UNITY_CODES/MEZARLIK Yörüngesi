@@ -1,0 +1,49 @@
+using UnityEngine;
+
+public class YorungeDizici : MonoBehaviour
+{
+    public GameObject aktifUyduPrefab, copPrefab;
+    public int uyduSayisi = 4; // Aktif uydu sayısı
+    public int copSayisi = 6;  // Çöp sayısı
+    public float yorungeMesafesi = 100f; // Dünya merkezinden uzaklık
+    public Transform dunya; // Dünya objesi
+
+    void Start()
+    {
+        if (dunya == null)
+        {
+            Debug.LogError("Dünya objesi atanmadı!");
+            return;
+        }
+
+        // 1. Aktif Uyduları eşit açılarla dağıt
+        for (int i = 0; i < uyduSayisi; i++)
+        {
+            float aci = i * (360f / uyduSayisi);
+            Olustur(aktifUyduPrefab, "AktifUydu", aci);
+        }
+
+        // 2. Çöpleri uyduların arasına denk gelecek şekilde dağıt
+        for (int i = 0; i < copSayisi; i++)
+        {
+            float aci = (i * (360f / copSayisi)) + (180f / copSayisi); // Uydularla çakışmaması için kaydırma
+            Olustur(copPrefab, "Cop", aci);
+        }
+    }
+
+    void Olustur(GameObject prefab, string tag, float aci)
+    {
+        if (prefab == null) return;
+
+        float radyan = aci * Mathf.Deg2Rad;
+
+        // Dünya merkezine göre pozisyon
+        Vector3 pos = dunya.position + new Vector3(Mathf.Cos(radyan), 0, Mathf.Sin(radyan)) * yorungeMesafesi;
+
+        GameObject obj = Instantiate(prefab, pos, Quaternion.identity);
+        obj.tag = tag;
+
+        // Objeyi Dünya’ya dönük yap
+        obj.transform.LookAt(dunya.position);
+    }
+}
