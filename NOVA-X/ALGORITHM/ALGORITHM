@@ -1,0 +1,67 @@
+BAŞLAT:
+
+    sistemleri başlat
+    lazer = KAPALI
+    mıknatıs = KAPALI
+    kapasitör = 0
+
+LOOP:
+
+    kapasitör şarj et
+    manyetikAlan oku
+
+    EĞER manyetikAlan <= 80:
+        DURUM = İZLEME
+        devam et
+
+    EĞER manyetikAlan > 80:
+        DURUM = ANOMALİ
+        hedefi analiz et
+hedefID = CelesTrak'tan çek
+EĞER hedefID == 25544:
+    tip = ISS
+
+ELSE EĞER veri varsa:
+    tip = AKTİF_UYDU
+
+ELSE:
+    tip = UZAY_COPU
+EĞER tip == ISS:
+    DURUM = KRİTİK_İPTAL
+
+EĞER tip == AKTİF_UYDU:
+    DURUM = BEKLEME
+
+EĞER tip == UZAY_COPU:
+    DURUM = İMHA
+lazer = KAPAT (GPIO LOW)
+Arduino → "MIKNATIS_AC"
+
+yön = ters
+uzaklaş()
+
+LOG: "ISS tespit edildi → kaçınılıyor"
+lazer = KAPALI
+mıknatıs = KAPALI
+
+hedef geçene kadar bekle
+
+LOG: "Aktif uydu → müdahale yok"
+Arduino → "MIKNATIS_AC"
+yaklaş()
+EĞER kapasitör < 100:
+    bekle ve şarj et
+GPIO HIGH (MOSFET)
+
+2-3 saniye lazer çalıştır
+GPIO LOW
+kapasitör = 0
+
+Arduino → "MIKNATIS_KAPAT"
+manyetikAlan = NORMAL
+durum = İZLEME
+EĞER API çalışmazsa:
+    tip = AKTİF_UYDU (güvenli mod)
+
+EĞER manyetikAlan > 150:
+    ACİL KAÇINMA
